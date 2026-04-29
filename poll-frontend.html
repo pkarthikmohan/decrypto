@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PollChain</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:#0d0d14; --surface:#13131f; --card:#1a1a2e; --border:#2a2a45;
+      --purple:#7c3aed; --purple-h:#9d5cf6; --purple-s:#5b21b6;
+      --text:#e2e2f0; --muted:#7070a0; --success:#22c55e; --error:#ef4444; --radius:12px;
+    }
+    body { background:var(--bg); color:var(--text); font-family:"Segoe UI",system-ui,sans-serif; min-height:100vh; padding:24px 16px 60px; }
+    header { max-width:860px; margin:0 auto 36px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+    .logo { display:flex; align-items:center; gap:10px; }
+    .logo-icon { width:38px; height:38px; background:linear-gradient(135deg,var(--purple),#c026d3); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; }
+    .logo h1 { font-size:1.4rem; font-weight:700; letter-spacing:-0.5px; }
+    .logo span { color:var(--purple-h); }
+    #connectBtn { background:linear-gradient(135deg,var(--purple),#9333ea); color:#fff; border:none; padding:10px 22px; border-radius:8px; font-size:.9rem; font-weight:600; cursor:pointer; transition:opacity .2s; }
+    #connectBtn:hover { opacity:.85; }
+    #walletInfo { font-size:.82rem; color:var(--muted); background:var(--card); border:1px solid var(--border); padding:8px 14px; border-radius:8px; display:none; }
+    .main { max-width:860px; margin:0 auto; display:flex; flex-direction:column; gap:28px; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:28px; }
+    .card-title { font-size:1rem; font-weight:700; color:var(--purple-h); margin-bottom:20px; display:flex; align-items:center; gap:8px; }
+    .badge { background:var(--purple-s); color:#d8b4fe; font-size:.7rem; padding:2px 8px; border-radius:20px; font-weight:600; }
+    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .form-grid .full { grid-column:1/-1; }
+    label { display:block; font-size:.78rem; color:var(--muted); margin-bottom:6px; font-weight:600; letter-spacing:.3px; text-transform:uppercase; }
+    input[type=text], input[type=number] { width:100%; background:var(--surface); border:1px solid var(--border); color:var(--text); padding:10px 14px; border-radius:8px; font-size:.92rem; outline:none; transition:border-color .2s; }
+    input:focus { border-color:var(--purple); }
+    .btn-row { margin-top:18px; display:flex; gap:10px; flex-wrap:wrap; }
+    button.primary { background:linear-gradient(135deg,var(--purple),#9333ea); color:#fff; border:none; padding:11px 24px; border-radius:8px; font-size:.9rem; font-weight:600; cursor:pointer; transition:opacity .2s,transform .1s; }
+    button.primary:hover { opacity:.88; }
+    button.primary:active { transform:scale(.98); }
+    button.secondary { background:transparent; color:var(--purple-h); border:1px solid var(--purple); padding:11px 24px; border-radius:8px; font-size:.9rem; font-weight:600; cursor:pointer; transition:background .2s; }
+    button.secondary:hover { background:rgba(124,58,237,.12); }
+    .status { margin-top:14px; padding:10px 14px; border-radius:8px; font-size:.85rem; font-weight:500; display:none; }
+    .status.success { background:rgba(34,197,94,.12); color:var(--success); border:1px solid rgba(34,197,94,.3); display:block; }
+    .status.error   { background:rgba(239,68,68,.12);  color:var(--error);   border:1px solid rgba(239,68,68,.3);  display:block; }
+    .status.info    { background:rgba(124,58,237,.12); color:var(--purple-h);border:1px solid rgba(124,58,237,.3); display:block; }
+    .hash-display { margin-top:12px; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px 14px; font-size:.78rem; color:var(--purple-h); word-break:break-all; font-family:monospace; display:none; }
+    .results-box { margin-top:16px; display:none; }
+    .result-item { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+    .result-label { font-size:.88rem; min-width:120px; color:var(--text); font-weight:500; }
+    .bar-wrap { flex:1; background:var(--surface); border-radius:20px; height:14px; overflow:hidden; border:1px solid var(--border); }
+    .bar-fill { height:100%; background:linear-gradient(90deg,var(--purple),#c026d3); border-radius:20px; transition:width .6s ease; }
+    .result-count { font-size:.85rem; color:var(--muted); min-width:55px; text-align:right; }
+    .network-badge { display:inline-flex; align-items:center; gap:6px; font-size:.75rem; color:var(--muted); background:var(--surface); border:1px solid var(--border); padding:4px 10px; border-radius:20px; }
+    .dot { width:7px; height:7px; border-radius:50%; background:var(--success); display:inline-block; }
+    @media(max-width:560px){ .form-grid{grid-template-columns:1fr;} .form-grid .full{grid-column:1;} }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🗳️</div>
+    <h1>Poll<span>Chain</span></h1>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <div class="network-badge"><span class="dot"></span> Sepolia</div>
+    <div id="walletInfo"></div>
+    <button id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- ── STEP 1: Create Poll ── -->
+  <div class="card">
+    <div class="card-title">✏️ Create Poll <span class="badge">STEP 1</span></div>
+    <div class="form-grid">
+      <div class="full">
+        <label>Question</label>
+        <input type="text" id="cp-question" placeholder="What is your favourite chain?" />
+      </div>
+      <div>
+        <label>Option A (index 0)</label>
+        <input type="text" id="cp-opt0" placeholder="Ethereum" />
+      </div>
+      <div>
+        <label>Option B (index 1)</label>
+        <input type="text" id="cp-opt1" placeholder="Solana" />
+      </div>
+      <div>
+        <label>Commit Duration (seconds)</label>
+        <input type="number" id="cp-commit" placeholder="300" min="1" />
+      </div>
+      <div>
+        <label>Reveal Duration (seconds)</label>
+        <input type="number" id="cp-reveal" placeholder="300" min="1" />
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="primary" onclick="createPoll()">🚀 Create Poll</button>
+    </div>
+    <div id="cp-status" class="status"></div>
+  </div>
+
+  <!-- ── STEP 2: Commit Vote ── -->
+  <div class="card">
+    <div class="card-title">🔒 Commit Vote <span class="badge">STEP 2</span></div>
+    <div class="form-grid">
+      <div>
+        <label>Poll ID</label>
+        <input type="number" id="cv-pollid" placeholder="0" min="0" />
+      </div>
+      <div>
+        <label>Choice (0 or 1)</label>
+        <input type="number" id="cv-choice" placeholder="0" min="0" max="1" />
+      </div>
+      <div class="full">
+        <label>Secret Word</label>
+        <input type="text" id="cv-secret" placeholder="my-super-secret-word" />
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="secondary" onclick="generateHash()">🔑 Generate Hash</button>
+      <button class="primary"   onclick="commitVote()">📨 Commit Vote</button>
+    </div>
+    <div id="cv-hash" class="hash-display"></div>
+    <div id="cv-status" class="status"></div>
+  </div>
+
+  <!-- ── STEP 3: Reveal & Results ── -->
+  <div class="card">
+    <div class="card-title">🔓 Reveal &amp; Results <span class="badge">STEP 3</span></div>
+    <div class="form-grid">
+      <div>
+        <label>Poll ID</label>
+        <input type="number" id="rv-pollid" placeholder="0" min="0" />
+      </div>
+      <div>
+        <label>Choice (0 or 1)</label>
+        <input type="number" id="rv-choice" placeholder="0" min="0" max="1" />
+      </div>
+      <div class="full">
+        <label>Secret Word</label>
+        <input type="text" id="rv-secret" placeholder="my-super-secret-word" />
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="primary"   onclick="revealVote()">🔓 Reveal Vote</button>
+      <button class="secondary" onclick="getResults()">📊 Get Results</button>
+    </div>
+    <div id="rv-status" class="status"></div>
+    <div id="rv-results" class="results-box"></div>
+  </div>
+
+</div>
+
+<script>
+  const CONTRACT_ADDRESS = "0x3A7f59FC7ca88AE7aDbDc21DcfE0F44F771570f9";
+  const ABI = [
+    {"inputs":[{"internalType":"string","name":"question","type":"string"},{"internalType":"string[]","name":"options","type":"string[]"},{"internalType":"uint256","name":"commitDuration","type":"uint256"},{"internalType":"uint256","name":"revealDuration","type":"uint256"}],"name":"createPoll","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},
+    {"inputs":[{"internalType":"uint256","name":"pollId","type":"uint256"},{"internalType":"bytes32","name":"hashedVote","type":"bytes32"}],"name":"commitVote","outputs":[],"stateMutability":"nonpayable","type":"function"},
+    {"inputs":[{"internalType":"uint256","name":"pollId","type":"uint256"},{"internalType":"uint256","name":"choice","type":"uint256"},{"internalType":"string","name":"secret","type":"string"}],"name":"revealVote","outputs":[],"stateMutability":"nonpayable","type":"function"},
+    {"inputs":[{"internalType":"uint256","name":"pollId","type":"uint256"}],"name":"getResults","outputs":[{"internalType":"string[]","name":"options","type":"string[]"},{"internalType":"uint256[]","name":"counts","type":"uint256[]"}],"stateMutability":"view","type":"function"},
+    {"inputs":[{"internalType":"uint256","name":"choice","type":"uint256"},{"internalType":"string","name":"secret","type":"string"}],"name":"generateHash","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"stateMutability":"view","type":"function"},
+    {"inputs":[],"name":"pollCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+    {"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"pollId","type":"uint256"},{"indexed":false,"internalType":"string","name":"question","type":"string"}],"name":"PollCreated","type":"event"},
+    {"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"pollId","type":"uint256"},{"indexed":false,"internalType":"address","name":"voter","type":"address"}],"name":"VoteCommitted","type":"event"},
+    {"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"pollId","type":"uint256"},{"indexed":false,"internalType":"address","name":"voter","type":"address"},{"indexed":false,"internalType":"uint256","name":"choice","type":"uint256"}],"name":"VoteRevealed","type":"event"}
+  ];
+
+  let provider, signer, contract;
+
+  const $ = id => document.getElementById(id);
+
+  function setStatus(id, msg, type) {
+    const el = $(id);
+    el.textContent = msg;
+    el.className = "status " + type;
+  }
+
+  async function connectWallet() {
+    const eth = window.ethereum;
+    if (!eth) { alert("MetaMask not detected. Please install it."); return; }
+    try {
+      provider = new ethers.BrowserProvider(eth);
+      await provider.send("eth_requestAccounts", []);
+      const network = await provider.getNetwork();
+      if (network.chainId !== 11155111n) {
+        alert("Please switch to Sepolia testnet (chain ID 11155111)."); return;
+      }
+      signer   = await provider.getSigner();
+      contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+      const addr  = await signer.getAddress();
+      const short = addr.slice(0,6) + "..." + addr.slice(-4);
+      $("walletInfo").textContent = "🟢 " + short;
+      $("walletInfo").style.display = "block";
+      $("connectBtn").textContent = "Connected";
+      $("connectBtn").style.opacity = "0.6";
+      $("connectBtn").disabled = true;
+    } catch(e) { alert("Connection failed: " + e.message); }
+  }
+
+  function requireWallet() {
+    if (!contract) { alert("Please connect your wallet first."); return false; }
+    return true;
+  }
+
+  async function createPoll() {
+    if (!requireWallet()) return;
+    const question = $("cp-question").value.trim();
+    const opt0     = $("cp-opt0").value.trim();
+    const opt1     = $("cp-opt1").value.trim();
+    const commit   = $("cp-commit").value;
+    const reveal   = $("cp-reveal").value;
+    if (!question || !opt0 || !opt1 || !commit || !reveal) {
+      setStatus("cp-status","⚠️ Please fill in all fields.","error"); return;
+    }
+    try {
+      setStatus("cp-status","⏳ Sending transaction...","info");
+      const tx = await contract.createPoll(question, [opt0, opt1], BigInt(commit), BigInt(reveal));
+      setStatus("cp-status","⏳ Waiting for confirmation... tx: " + tx.hash,"info");
+      const receipt = await tx.wait();
+      let pollId = "?";
+      for (const log of receipt.logs) {
+        try {
+          const parsed = contract.interface.parseLog(log);
+          if (parsed && parsed.name === "PollCreated") { pollId = parsed.args[0].toString(); break; }
+        } catch(_) {}
+      }
+      setStatus("cp-status","✅ Poll created! Poll ID: " + pollId,"success");
+    } catch(e) { setStatus("cp-status","❌ " + (e.reason || e.message),"error"); }
+  }
+
+  async function generateHash() {
+    if (!requireWallet()) return;
+    const choice = $("cv-choice").value;
+    const secret = $("cv-secret").value.trim();
+    if (choice === "" || !secret) {
+      setStatus("cv-status","⚠️ Enter choice and secret first.","error"); return;
+    }
+    try {
+      const addr = await signer.getAddress();
+      const hash = ethers.solidityPackedKeccak256(
+        ["uint256", "string", "address"],
+        [BigInt(choice), secret, addr]
+      );
+      $("cv-hash").textContent = "Hash: " + hash;
+      $("cv-hash").style.display = "block";
+      setStatus("cv-status","✅ Hash generated. Use Commit Vote to submit it.","success");
+    } catch(e) { setStatus("cv-status","❌ " + (e.reason || e.message),"error"); }
+  }
+
+  async function commitVote() {
+    if (!requireWallet()) return;
+    const pollId = $("cv-pollid").value;
+    const choice = $("cv-choice").value;
+    const secret = $("cv-secret").value.trim();
+    if (pollId === "" || choice === "" || !secret) {
+      setStatus("cv-status","⚠️ Fill in Poll ID, choice, and secret.","error"); return;
+    }
+    try {
+      setStatus("cv-status","⏳ Fetching hash from contract...","info");
+      const addr = await signer.getAddress();
+const hash = ethers.solidityPackedKeccak256(
+  ["uint256", "string", "address"],
+  [BigInt(choice), secret, addr]
+);
+      setStatus("cv-status","⏳ Sending commit transaction...","info");
+      const tx = await contract.commitVote(BigInt(pollId), hash);
+      setStatus("cv-status","⏳ Waiting for confirmation... tx: " + tx.hash,"info");
+      await tx.wait();
+      setStatus("cv-status","✅ Vote committed successfully!","success");
+    } catch(e) { setStatus("cv-status","❌ " + (e.reason || e.message),"error"); }
+  }
+
+  async function revealVote() {
+    if (!requireWallet()) return;
+    const pollId = $("rv-pollid").value;
+    const choice = $("rv-choice").value;
+    const secret = $("rv-secret").value.trim();
+    if (pollId === "" || choice === "" || !secret) {
+      setStatus("rv-status","⚠️ Fill in Poll ID, choice, and secret.","error"); return;
+    }
+    try {
+      setStatus("rv-status","⏳ Sending reveal transaction...","info");
+      const tx = await contract.revealVote(BigInt(pollId), BigInt(choice), secret);
+      setStatus("rv-status","⏳ Waiting for confirmation... tx: " + tx.hash,"info");
+      await tx.wait();
+      setStatus("rv-status","✅ Vote revealed successfully!","success");
+    } catch(e) { setStatus("rv-status","❌ " + (e.reason || e.message),"error"); }
+  }
+
+  async function getResults() {
+    if (!requireWallet()) return;
+    const pollId = $("rv-pollid").value;
+    if (pollId === "") { setStatus("rv-status","⚠️ Enter a Poll ID.","error"); return; }
+    try {
+      setStatus("rv-status","⏳ Fetching results...","info");
+      
+      // Try reading with a read-only provider
+      const readProvider = new ethers.BrowserProvider(window.ethereum);
+      const readContract = new ethers.Contract(CONTRACT_ADDRESS, ABI, readProvider);
+      
+      const options = await readContract.getResults.staticCall(BigInt(pollId));
+      
+      const box = $("rv-results");
+      let html = `<div style="font-size:.8rem;color:var(--muted);margin-bottom:12px;">Poll #${pollId} Results</div>`;
+      
+      const optList = options[0];
+      const cntList = options[1];
+      const total = cntList.reduce((a,b) => a + b, 0n);
+      
+      optList.forEach((opt, i) => {
+        const count = cntList[i];
+        const pct = total === 0n ? 0 : Number((count * 100n) / total);
+        const safe = String(opt).replace(/</g,"&lt;").replace(/>/g,"&gt;");
+        html += `<div class="result-item">
+          <div class="result-label">${safe}</div>
+          <div class="bar-wrap"><div class="bar-fill" style="width:${pct}%"></div></div>
+          <div class="result-count">${count.toString()} vote${count === 1n ? "" : "s"}</div>
+        </div>`;
+      });
+      
+      box.innerHTML = html;
+      box.style.display = "block";
+      setStatus("rv-status","✅ Results loaded.","success");
+    } catch(e) { 
+      setStatus("rv-status","❌ " + (e.reason || e.message),"error"); 
+      console.error("Full error:", e);
+    }
+  }
+</script>
+</body>
+</html>
