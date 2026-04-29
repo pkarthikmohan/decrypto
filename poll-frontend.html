@@ -3,329 +3,723 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>PollChain</title>
+  <title>PollChain — Anonymous Voting</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     :root {
-      --bg:#0d0d14; --surface:#13131f; --card:#1a1a2e; --border:#2a2a45;
-      --purple:#7c3aed; --purple-h:#9d5cf6; --purple-s:#5b21b6;
-      --text:#e2e2f0; --muted:#7070a0; --success:#22c55e; --error:#ef4444; --radius:12px;
+      --bg: #080810;
+      --surface: #0f0f1a;
+      --card: #13131f;
+      --border: #1e1e32;
+      --accent: #6d28d9;
+      --accent2: #a855f7;
+      --green: #10b981;
+      --red: #ef4444;
+      --text: #f0f0ff;
+      --muted: #6060a0;
+      --font: 'Syne', sans-serif;
+      --mono: 'DM Mono', monospace;
     }
-    body { background:var(--bg); color:var(--text); font-family:"Segoe UI",system-ui,sans-serif; min-height:100vh; padding:24px 16px 60px; }
-    header { max-width:860px; margin:0 auto 36px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
-    .logo { display:flex; align-items:center; gap:10px; }
-    .logo-icon { width:38px; height:38px; background:linear-gradient(135deg,var(--purple),#c026d3); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; }
-    .logo h1 { font-size:1.4rem; font-weight:700; letter-spacing:-0.5px; }
-    .logo span { color:var(--purple-h); }
-    #connectBtn { background:linear-gradient(135deg,var(--purple),#9333ea); color:#fff; border:none; padding:10px 22px; border-radius:8px; font-size:.9rem; font-weight:600; cursor:pointer; transition:opacity .2s; }
-    #connectBtn:hover { opacity:.85; }
-    #walletInfo { font-size:.82rem; color:var(--muted); background:var(--card); border:1px solid var(--border); padding:8px 14px; border-radius:8px; display:none; }
-    .main { max-width:860px; margin:0 auto; display:flex; flex-direction:column; gap:28px; }
-    .card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:28px; }
-    .card-title { font-size:1rem; font-weight:700; color:var(--purple-h); margin-bottom:20px; display:flex; align-items:center; gap:8px; }
-    .badge { background:var(--purple-s); color:#d8b4fe; font-size:.7rem; padding:2px 8px; border-radius:20px; font-weight:600; }
-    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-    .form-grid .full { grid-column:1/-1; }
-    label { display:block; font-size:.78rem; color:var(--muted); margin-bottom:6px; font-weight:600; letter-spacing:.3px; text-transform:uppercase; }
-    input[type=text], input[type=number] { width:100%; background:var(--surface); border:1px solid var(--border); color:var(--text); padding:10px 14px; border-radius:8px; font-size:.92rem; outline:none; transition:border-color .2s; }
-    input:focus { border-color:var(--purple); }
-    .btn-row { margin-top:18px; display:flex; gap:10px; flex-wrap:wrap; }
-    button.primary { background:linear-gradient(135deg,var(--purple),#9333ea); color:#fff; border:none; padding:11px 24px; border-radius:8px; font-size:.9rem; font-weight:600; cursor:pointer; transition:opacity .2s,transform .1s; }
-    button.primary:hover { opacity:.88; }
-    button.primary:active { transform:scale(.98); }
-    button.secondary { background:transparent; color:var(--purple-h); border:1px solid var(--purple); padding:11px 24px; border-radius:8px; font-size:.9rem; font-weight:600; cursor:pointer; transition:background .2s; }
-    button.secondary:hover { background:rgba(124,58,237,.12); }
-    .status { margin-top:14px; padding:10px 14px; border-radius:8px; font-size:.85rem; font-weight:500; display:none; }
-    .status.success { background:rgba(34,197,94,.12); color:var(--success); border:1px solid rgba(34,197,94,.3); display:block; }
-    .status.error   { background:rgba(239,68,68,.12);  color:var(--error);   border:1px solid rgba(239,68,68,.3);  display:block; }
-    .status.info    { background:rgba(124,58,237,.12); color:var(--purple-h);border:1px solid rgba(124,58,237,.3); display:block; }
-    .hash-display { margin-top:12px; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px 14px; font-size:.78rem; color:var(--purple-h); word-break:break-all; font-family:monospace; display:none; }
-    .results-box { margin-top:16px; display:none; }
-    .result-item { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
-    .result-label { font-size:.88rem; min-width:120px; color:var(--text); font-weight:500; }
-    .bar-wrap { flex:1; background:var(--surface); border-radius:20px; height:14px; overflow:hidden; border:1px solid var(--border); }
-    .bar-fill { height:100%; background:linear-gradient(90deg,var(--purple),#c026d3); border-radius:20px; transition:width .6s ease; }
-    .result-count { font-size:.85rem; color:var(--muted); min-width:55px; text-align:right; }
-    .network-badge { display:inline-flex; align-items:center; gap:6px; font-size:.75rem; color:var(--muted); background:var(--surface); border:1px solid var(--border); padding:4px 10px; border-radius:20px; }
-    .dot { width:7px; height:7px; border-radius:50%; background:var(--success); display:inline-block; }
-    @media(max-width:560px){ .form-grid{grid-template-columns:1fr;} .form-grid .full{grid-column:1;} }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Ambient background */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -200px; left: 50%;
+      transform: translateX(-50%);
+      width: 800px; height: 500px;
+      background: radial-gradient(ellipse, rgba(109,40,217,0.15) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── HEADER ── */
+    header {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 32px;
+      background: rgba(8,8,16,0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 1.2rem; font-weight: 800; letter-spacing: -0.5px;
+    }
+    .logo-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent2); box-shadow: 0 0 12px var(--accent2); }
+
+    .header-right { display: flex; align-items: center; gap: 12px; }
+
+    .chip {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.75rem; font-family: var(--mono);
+      background: var(--surface); border: 1px solid var(--border);
+      padding: 6px 12px; border-radius: 20px; color: var(--muted);
+    }
+    .chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+    #connectBtn {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff; border: none; padding: 10px 20px;
+      border-radius: 10px; font-family: var(--font);
+      font-size: 0.85rem; font-weight: 700; cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    #connectBtn:hover { opacity: 0.85; }
+    #connectBtn:active { transform: scale(0.97); }
+    #connectBtn:disabled { opacity: 0.5; cursor: default; }
+
+    /* ── MAIN LAYOUT ── */
+    main {
+      max-width: 900px; margin: 0 auto;
+      padding: 48px 24px 80px;
+      position: relative; z-index: 1;
+    }
+
+    /* ── TABS ── */
+    .tabs {
+      display: flex; gap: 4px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 4px;
+      margin-bottom: 40px; width: fit-content;
+    }
+    .tab {
+      padding: 8px 24px; border-radius: 8px;
+      font-size: 0.85rem; font-weight: 700;
+      cursor: pointer; border: none;
+      background: transparent; color: var(--muted);
+      font-family: var(--font); transition: all 0.2s;
+    }
+    .tab.active {
+      background: var(--accent); color: #fff;
+      box-shadow: 0 0 20px rgba(109,40,217,0.4);
+    }
+
+    /* ── SECTION TITLE ── */
+    .section-title {
+      font-size: 2rem; font-weight: 800;
+      letter-spacing: -1px; margin-bottom: 8px;
+    }
+    .section-sub {
+      font-size: 0.9rem; color: var(--muted); margin-bottom: 32px;
+    }
+
+    /* ── POLL CARDS ── */
+    .polls-grid {
+      display: flex; flex-direction: column; gap: 20px;
+    }
+
+    .poll-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px; padding: 32px;
+      transition: border-color 0.2s, transform 0.2s;
+      position: relative; overflow: hidden;
+    }
+    .poll-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      opacity: 0; transition: opacity 0.2s;
+    }
+    .poll-card:hover { border-color: rgba(109,40,217,0.4); transform: translateY(-2px); }
+    .poll-card:hover::before { opacity: 1; }
+
+    .poll-id-badge {
+      font-family: var(--mono); font-size: 0.7rem;
+      color: var(--muted); margin-bottom: 12px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .poll-id-badge::before {
+      content: ''; display: block;
+      width: 20px; height: 1px; background: var(--border);
+    }
+
+    .poll-question {
+      font-size: 1.3rem; font-weight: 700;
+      letter-spacing: -0.3px; margin-bottom: 24px;
+      line-height: 1.4;
+    }
+
+    /* Phase indicator */
+    .phase-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 0.72rem; font-family: var(--mono); font-weight: 500;
+      padding: 4px 12px; border-radius: 20px; margin-bottom: 20px;
+    }
+    .phase-badge.commit { background: rgba(168,85,247,0.15); color: var(--accent2); border: 1px solid rgba(168,85,247,0.3); }
+    .phase-badge.reveal { background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
+    .phase-badge.ended  { background: rgba(96,96,160,0.15); color: var(--muted); border: 1px solid var(--border); }
+    .phase-badge .blink { width: 6px; height: 6px; border-radius: 50%; animation: blink 1.4s infinite; }
+    .phase-badge.commit .blink { background: var(--accent2); }
+    .phase-badge.reveal .blink { background: #f59e0b; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* Timer */
+    .timer {
+      font-family: var(--mono); font-size: 0.8rem;
+      color: var(--muted); margin-bottom: 20px;
+    }
+    .timer span { color: var(--text); font-weight: 500; }
+
+    /* Vote buttons */
+    .vote-buttons {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .vote-btn {
+      padding: 18px; border-radius: 14px;
+      font-family: var(--font); font-size: 1rem; font-weight: 700;
+      cursor: pointer; border: 2px solid transparent;
+      transition: all 0.2s; position: relative; overflow: hidden;
+    }
+    .vote-btn.yes {
+      background: rgba(16,185,129,0.1);
+      border-color: rgba(16,185,129,0.3); color: var(--green);
+    }
+    .vote-btn.yes:hover {
+      background: rgba(16,185,129,0.2);
+      border-color: var(--green);
+      box-shadow: 0 0 20px rgba(16,185,129,0.2);
+      transform: translateY(-2px);
+    }
+    .vote-btn.no {
+      background: rgba(239,68,68,0.1);
+      border-color: rgba(239,68,68,0.3); color: var(--red);
+    }
+    .vote-btn.no:hover {
+      background: rgba(239,68,68,0.2);
+      border-color: var(--red);
+      box-shadow: 0 0 20px rgba(239,68,68,0.2);
+      transform: translateY(-2px);
+    }
+    .vote-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+    .vote-btn.voted-yes { background: rgba(16,185,129,0.25); border-color: var(--green); }
+    .vote-btn.voted-no  { background: rgba(239,68,68,0.25);  border-color: var(--red); }
+
+    /* Results bar */
+    .results-area { margin-top: 20px; }
+    .result-row { margin-bottom: 12px; }
+    .result-header { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.85rem; font-weight: 600; }
+    .result-header .count { font-family: var(--mono); color: var(--muted); }
+    .bar-track { background: var(--surface); border-radius: 6px; height: 8px; overflow: hidden; border: 1px solid var(--border); }
+    .bar-fill { height: 100%; border-radius: 6px; transition: width 0.8s cubic-bezier(0.4,0,0.2,1); }
+    .bar-fill.yes { background: linear-gradient(90deg, #059669, var(--green)); }
+    .bar-fill.no  { background: linear-gradient(90deg, #b91c1c, var(--red)); }
+
+    /* Card status message */
+    .card-status {
+      font-size: 0.8rem; padding: 10px 14px;
+      border-radius: 8px; margin-top: 12px; display: none;
+    }
+    .card-status.success { background: rgba(16,185,129,0.1); color: var(--green); border: 1px solid rgba(16,185,129,0.2); display: block; }
+    .card-status.error   { background: rgba(239,68,68,0.1);  color: var(--red);   border: 1px solid rgba(239,68,68,0.2);  display: block; }
+    .card-status.info    { background: rgba(109,40,217,0.1); color: var(--accent2); border: 1px solid rgba(109,40,217,0.2); display: block; }
+
+    /* Reveal button */
+    .reveal-btn {
+      width: 100%; margin-top: 12px; padding: 12px;
+      background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3);
+      color: #f59e0b; border-radius: 10px;
+      font-family: var(--font); font-weight: 700; font-size: 0.85rem;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .reveal-btn:hover { background: rgba(245,158,11,0.2); }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center; padding: 80px 20px;
+      color: var(--muted);
+    }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 16px; }
+    .empty-state p { font-size: 1rem; }
+
+    /* ── CREATE POLL PANEL ── */
+    #createView { display: none; }
+
+    .create-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 20px; padding: 40px; max-width: 600px;
+    }
+
+    .field { margin-bottom: 20px; }
+    label {
+      display: block; font-size: 0.72rem; font-weight: 700;
+      color: var(--muted); text-transform: uppercase; letter-spacing: 1px;
+      margin-bottom: 8px; font-family: var(--mono);
+    }
+    input[type=text], input[type=number] {
+      width: 100%; background: var(--surface);
+      border: 1px solid var(--border); color: var(--text);
+      padding: 12px 16px; border-radius: 10px;
+      font-size: 0.95rem; font-family: var(--font);
+      outline: none; transition: border-color 0.2s;
+    }
+    input:focus { border-color: var(--accent); }
+
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+    .hint { font-size: 0.75rem; color: var(--muted); margin-top: 6px; font-family: var(--mono); }
+
+    .create-btn {
+      width: 100%; padding: 16px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff; border: none; border-radius: 12px;
+      font-family: var(--font); font-size: 1rem; font-weight: 800;
+      cursor: pointer; margin-top: 8px;
+      transition: opacity 0.2s, transform 0.1s;
+      letter-spacing: -0.3px;
+    }
+    .create-btn:hover { opacity: 0.88; }
+    .create-btn:active { transform: scale(0.98); }
+
+    #createStatus {
+      margin-top: 16px; padding: 12px 16px;
+      border-radius: 10px; font-size: 0.85rem; display: none;
+    }
+    #createStatus.success { background: rgba(16,185,129,0.1); color: var(--green); border: 1px solid rgba(16,185,129,0.2); display: block; }
+    #createStatus.error   { background: rgba(239,68,68,0.1);  color: var(--red);   border: 1px solid rgba(239,68,68,0.2);  display: block; }
+    #createStatus.info    { background: rgba(109,40,217,0.1); color: var(--accent2); border: 1px solid rgba(109,40,217,0.2); display: block; }
+
+    /* Loading spinner */
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff; border-radius: 50%;
+      animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Wallet required overlay on cards */
+    .wallet-required {
+      font-size: 0.8rem; color: var(--muted);
+      text-align: center; padding: 12px;
+      border: 1px dashed var(--border); border-radius: 10px;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 560px) {
+      header { padding: 12px 16px; }
+      main { padding: 32px 16px 60px; }
+      .section-title { font-size: 1.5rem; }
+      .create-card { padding: 24px; }
+      .field-row { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
 
 <header>
   <div class="logo">
-    <div class="logo-icon">🗳️</div>
-    <h1>Poll<span>Chain</span></h1>
+    <div class="logo-dot"></div>
+    PollChain
   </div>
-  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-    <div class="network-badge"><span class="dot"></span> Sepolia</div>
-    <div id="walletInfo"></div>
+  <div class="header-right">
+    <div class="chip"><span class="dot"></span> Sepolia</div>
     <button id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
   </div>
 </header>
 
-<div class="main">
+<main>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('polls')">🗳️ Active Polls</button>
+    <button class="tab" onclick="switchTab('create')">✏️ Create Poll</button>
+  </div>
 
-  <!-- ── STEP 1: Create Poll ── -->
-  <div class="card">
-    <div class="card-title">✏️ Create Poll <span class="badge">STEP 1</span></div>
-    <div class="form-grid">
-      <div class="full">
+  <!-- POLLS VIEW -->
+  <div id="pollsView">
+    <div class="section-title">Active Polls</div>
+    <div class="section-sub">Vote anonymously. Results revealed after deadline. No one can cheat.</div>
+    <div class="polls-grid" id="pollsGrid">
+      <div class="empty-state">
+        <div class="icon">🔗</div>
+        <p>Connect your wallet to load polls</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- CREATE VIEW -->
+  <div id="createView">
+    <div class="section-title">Create a Poll</div>
+    <div class="section-sub">Deploy an anonymous poll to the blockchain.</div>
+    <div class="create-card">
+      <div class="field">
         <label>Question</label>
-        <input type="text" id="cp-question" placeholder="What is your favourite chain?" />
+        <input type="text" id="cp-question" placeholder="Should DAOs use anonymous voting?" />
       </div>
-      <div>
-        <label>Option A (index 0)</label>
-        <input type="text" id="cp-opt0" placeholder="Ethereum" />
+      <div class="field-row">
+        <div class="field">
+          <label>Option A</label>
+          <input type="text" id="cp-opt0" placeholder="Yes" />
+        </div>
+        <div class="field">
+          <label>Option B</label>
+          <input type="text" id="cp-opt1" placeholder="No" />
+        </div>
       </div>
-      <div>
-        <label>Option B (index 1)</label>
-        <input type="text" id="cp-opt1" placeholder="Solana" />
+      <div class="field-row">
+        <div class="field">
+          <label>Voting Duration</label>
+          <input type="number" id="cp-commit" placeholder="300" min="60" />
+          <div class="hint">seconds (300 = 5 min)</div>
+        </div>
+        <div class="field">
+          <label>Reveal Duration</label>
+          <input type="number" id="cp-reveal" placeholder="300" min="60" />
+          <div class="hint">seconds after voting ends</div>
+        </div>
       </div>
-      <div>
-        <label>Commit Duration (seconds)</label>
-        <input type="number" id="cp-commit" placeholder="300" min="1" />
-      </div>
-      <div>
-        <label>Reveal Duration (seconds)</label>
-        <input type="number" id="cp-reveal" placeholder="300" min="1" />
-      </div>
+      <button class="create-btn" onclick="createPoll()">🚀 Deploy Poll to Blockchain</button>
+      <div id="createStatus"></div>
     </div>
-    <div class="btn-row">
-      <button class="primary" onclick="createPoll()">🚀 Create Poll</button>
-    </div>
-    <div id="cp-status" class="status"></div>
   </div>
-
-  <!-- ── STEP 2: Commit Vote ── -->
-  <div class="card">
-    <div class="card-title">🔒 Commit Vote <span class="badge">STEP 2</span></div>
-    <div class="form-grid">
-      <div>
-        <label>Poll ID</label>
-        <input type="number" id="cv-pollid" placeholder="0" min="0" />
-      </div>
-      <div>
-        <label>Choice (0 or 1)</label>
-        <input type="number" id="cv-choice" placeholder="0" min="0" max="1" />
-      </div>
-      <div class="full">
-        <label>Secret Word</label>
-        <input type="text" id="cv-secret" placeholder="my-super-secret-word" />
-      </div>
-    </div>
-    <div class="btn-row">
-      <button class="secondary" onclick="generateHash()">🔑 Generate Hash</button>
-      <button class="primary"   onclick="commitVote()">📨 Commit Vote</button>
-    </div>
-    <div id="cv-hash" class="hash-display"></div>
-    <div id="cv-status" class="status"></div>
-  </div>
-
-  <!-- ── STEP 3: Reveal & Results ── -->
-  <div class="card">
-    <div class="card-title">🔓 Reveal &amp; Results <span class="badge">STEP 3</span></div>
-    <div class="form-grid">
-      <div>
-        <label>Poll ID</label>
-        <input type="number" id="rv-pollid" placeholder="0" min="0" />
-      </div>
-      <div>
-        <label>Choice (0 or 1)</label>
-        <input type="number" id="rv-choice" placeholder="0" min="0" max="1" />
-      </div>
-      <div class="full">
-        <label>Secret Word</label>
-        <input type="text" id="rv-secret" placeholder="my-super-secret-word" />
-      </div>
-    </div>
-    <div class="btn-row">
-      <button class="primary"   onclick="revealVote()">🔓 Reveal Vote</button>
-      <button class="secondary" onclick="getResults()">📊 Get Results</button>
-    </div>
-    <div id="rv-status" class="status"></div>
-    <div id="rv-results" class="results-box"></div>
-  </div>
-
-</div>
+</main>
 
 <script>
-  const CONTRACT_ADDRESS = "0x3A7f59FC7ca88AE7aDbDc21DcfE0F44F771570f9";
-  const ABI = [
-    {"inputs":[{"internalType":"string","name":"question","type":"string"},{"internalType":"string[]","name":"options","type":"string[]"},{"internalType":"uint256","name":"commitDuration","type":"uint256"},{"internalType":"uint256","name":"revealDuration","type":"uint256"}],"name":"createPoll","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},
-    {"inputs":[{"internalType":"uint256","name":"pollId","type":"uint256"},{"internalType":"bytes32","name":"hashedVote","type":"bytes32"}],"name":"commitVote","outputs":[],"stateMutability":"nonpayable","type":"function"},
-    {"inputs":[{"internalType":"uint256","name":"pollId","type":"uint256"},{"internalType":"uint256","name":"choice","type":"uint256"},{"internalType":"string","name":"secret","type":"string"}],"name":"revealVote","outputs":[],"stateMutability":"nonpayable","type":"function"},
-    {"inputs":[{"internalType":"uint256","name":"pollId","type":"uint256"}],"name":"getResults","outputs":[{"internalType":"string[]","name":"options","type":"string[]"},{"internalType":"uint256[]","name":"counts","type":"uint256[]"}],"stateMutability":"view","type":"function"},
-    {"inputs":[{"internalType":"uint256","name":"choice","type":"uint256"},{"internalType":"string","name":"secret","type":"string"}],"name":"generateHash","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"stateMutability":"view","type":"function"},
-    {"inputs":[],"name":"pollCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-    {"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"pollId","type":"uint256"},{"indexed":false,"internalType":"string","name":"question","type":"string"}],"name":"PollCreated","type":"event"},
-    {"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"pollId","type":"uint256"},{"indexed":false,"internalType":"address","name":"voter","type":"address"}],"name":"VoteCommitted","type":"event"},
-    {"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"pollId","type":"uint256"},{"indexed":false,"internalType":"address","name":"voter","type":"address"},{"indexed":false,"internalType":"uint256","name":"choice","type":"uint256"}],"name":"VoteRevealed","type":"event"}
-  ];
+const CONTRACT_ADDRESS = "0x3A7f59FC7ca88AE7aDbDc21DcfE0F44F771570f9";
+const ABI = [
+  {"inputs":[{"internalType":"string","name":"question","type":"string"},{"internalType":"string[]","name":"options","type":"string[]"},{"internalType":"uint256","name":"commitDuration","type":"uint256"},{"internalType":"uint256","name":"revealDuration","type":"uint256"}],"name":"createPoll","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"pollId","type":"uint256"},{"internalType":"bytes32","name":"hashedVote","type":"bytes32"}],"name":"commitVote","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"pollId","type":"uint256"},{"internalType":"uint256","name":"choice","type":"uint256"},{"internalType":"string","name":"secret","type":"string"}],"name":"revealVote","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"pollId","type":"uint256"}],"name":"getResults","outputs":[{"internalType":"string[]","name":"options","type":"string[]"},{"internalType":"uint256[]","name":"counts","type":"uint256[]"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"pollCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"polls","outputs":[{"internalType":"string","name":"question","type":"string"},{"internalType":"uint256","name":"commitDeadline","type":"uint256"},{"internalType":"uint256","name":"revealDeadline","type":"uint256"},{"internalType":"bool","name":"exists","type":"bool"}],"stateMutability":"view","type":"function"},
+  {"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"pollId","type":"uint256"},{"indexed":false,"internalType":"string","name":"question","type":"string"}],"name":"PollCreated","type":"event"},
+  {"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"pollId","type":"uint256"},{"indexed":false,"internalType":"address","name":"voter","type":"address"}],"name":"VoteCommitted","type":"event"},
+  {"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"pollId","type":"uint256"},{"indexed":false,"internalType":"address","name":"voter","type":"address"},{"indexed":false,"internalType":"uint256","name":"choice","type":"uint256"}],"name":"VoteRevealed","type":"event"}
+];
 
-  let provider, signer, contract;
+let provider, signer, contract, userAddress;
+const $ = id => document.getElementById(id);
 
-  const $ = id => document.getElementById(id);
+// Local storage for secrets
+function saveSecret(pollId, choice, secret) {
+  localStorage.setItem(`poll_${pollId}_secret`, secret);
+  localStorage.setItem(`poll_${pollId}_choice`, choice.toString());
+}
+function getSecret(pollId) {
+  return {
+    secret: localStorage.getItem(`poll_${pollId}_secret`),
+    choice: localStorage.getItem(`poll_${pollId}_choice`)
+  };
+}
+function markVoted(pollId) {
+  localStorage.setItem(`poll_${pollId}_voted`, '1');
+}
+function hasVoted(pollId) {
+  return localStorage.getItem(`poll_${pollId}_voted`) === '1';
+}
+function markRevealed(pollId) {
+  localStorage.setItem(`poll_${pollId}_revealed`, '1');
+}
+function hasRevealed(pollId) {
+  return localStorage.getItem(`poll_${pollId}_revealed`) === '1';
+}
 
-  function setStatus(id, msg, type) {
-    const el = $(id);
-    el.textContent = msg;
-    el.className = "status " + type;
+function generateSecret() {
+  const arr = new Uint8Array(16);
+  crypto.getRandomValues(arr);
+  return Array.from(arr).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+function formatCountdown(seconds) {
+  if (seconds <= 0) return 'Ended';
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
+async function connectWallet() {
+  if (!window.ethereum) { alert("MetaMask not found. Please install it."); return; }
+  try {
+    provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    const network = await provider.getNetwork();
+    if (network.chainId !== 11155111n) {
+      alert("Please switch to Sepolia testnet."); return;
+    }
+    signer = await provider.getSigner();
+    contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+    userAddress = await signer.getAddress();
+    const short = userAddress.slice(0,6) + "..." + userAddress.slice(-4);
+    $("connectBtn").textContent = short;
+    $("connectBtn").disabled = true;
+    await loadPolls();
+  } catch(e) { alert("Connection failed: " + e.message); }
+}
+
+async function loadPolls() {
+  const grid = $("pollsGrid");
+  grid.innerHTML = `<div class="empty-state"><div class="icon"><span class="spinner"></span></div><p>Loading polls from blockchain...</p></div>`;
+  try {
+    const count = await contract.pollCount();
+    const total = Number(count);
+    if (total === 0) {
+      grid.innerHTML = `<div class="empty-state"><div class="icon">📭</div><p>No polls yet. Create the first one!</p></div>`;
+      return;
+    }
+    grid.innerHTML = '';
+    for (let i = total - 1; i >= 0; i--) {
+      const card = await buildPollCard(i);
+      grid.appendChild(card);
+    }
+  } catch(e) {
+    grid.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>Error loading polls: ${e.message}</p></div>`;
   }
+}
 
-  async function connectWallet() {
-    const eth = window.ethereum;
-    if (!eth) { alert("MetaMask not detected. Please install it."); return; }
-    try {
-      provider = new ethers.BrowserProvider(eth);
-      await provider.send("eth_requestAccounts", []);
-      const network = await provider.getNetwork();
-      if (network.chainId !== 11155111n) {
-        alert("Please switch to Sepolia testnet (chain ID 11155111)."); return;
+async function buildPollCard(pollId) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'poll-card';
+  wrapper.id = `poll-${pollId}`;
+
+  try {
+    const pollData = await contract.polls(BigInt(pollId));
+    const question = pollData[0];
+    const commitDeadline = Number(pollData[1]);
+    const revealDeadline = Number(pollData[2]);
+    const now = Math.floor(Date.now() / 1000);
+
+    let phase, phaseLabel, phaseClass;
+    if (now < commitDeadline) {
+      phase = 'commit';
+      phaseLabel = '🟣 Voting Open';
+      phaseClass = 'commit';
+    } else if (now < revealDeadline) {
+      phase = 'reveal';
+      phaseLabel = '🟡 Reveal Phase';
+      phaseClass = 'reveal';
+    } else {
+      phase = 'ended';
+      phaseLabel = '⚫ Ended';
+      phaseClass = 'ended';
+    }
+
+    const voted = hasVoted(pollId);
+    const revealed = hasRevealed(pollId);
+
+    let resultsHTML = '';
+    if (phase === 'ended' || phase === 'reveal') {
+      try {
+        const res = await contract.getResults(BigInt(pollId));
+        const opts = res[0]; const cnts = res[1];
+        const total = cnts.reduce((a,b) => a+b, 0n);
+        resultsHTML = `<div class="results-area">`;
+        const classes = ['yes','no'];
+        opts.forEach((opt,i) => {
+          const pct = total === 0n ? 0 : Number((cnts[i]*100n)/total);
+          resultsHTML += `
+            <div class="result-row">
+              <div class="result-header">
+                <span>${opt}</span>
+                <span class="count">${cnts[i].toString()} votes · ${pct}%</span>
+              </div>
+              <div class="bar-track">
+                <div class="bar-fill ${classes[i]||'yes'}" style="width:${pct}%"></div>
+              </div>
+            </div>`;
+        });
+        resultsHTML += `</div>`;
+      } catch(_) {}
+    }
+
+    let actionHTML = '';
+    if (!userAddress) {
+      actionHTML = `<div class="wallet-required">Connect wallet to vote</div>`;
+    } else if (phase === 'commit') {
+      if (voted) {
+        actionHTML = `<div class="card-status success">✅ You voted! Come back during reveal phase to reveal your vote.</div>`;
+      } else {
+        actionHTML = `
+          <div class="vote-buttons">
+            <button class="vote-btn yes" onclick="castVote(${pollId}, 0, this)">✅ ${await getOption(pollId, 0)}</button>
+            <button class="vote-btn no"  onclick="castVote(${pollId}, 1, this)">❌ ${await getOption(pollId, 1)}</button>
+          </div>`;
       }
-      signer   = await provider.getSigner();
-      contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
-      const addr  = await signer.getAddress();
-      const short = addr.slice(0,6) + "..." + addr.slice(-4);
-      $("walletInfo").textContent = "🟢 " + short;
-      $("walletInfo").style.display = "block";
-      $("connectBtn").textContent = "Connected";
-      $("connectBtn").style.opacity = "0.6";
-      $("connectBtn").disabled = true;
-    } catch(e) { alert("Connection failed: " + e.message); }
-  }
-
-  function requireWallet() {
-    if (!contract) { alert("Please connect your wallet first."); return false; }
-    return true;
-  }
-
-  async function createPoll() {
-    if (!requireWallet()) return;
-    const question = $("cp-question").value.trim();
-    const opt0     = $("cp-opt0").value.trim();
-    const opt1     = $("cp-opt1").value.trim();
-    const commit   = $("cp-commit").value;
-    const reveal   = $("cp-reveal").value;
-    if (!question || !opt0 || !opt1 || !commit || !reveal) {
-      setStatus("cp-status","⚠️ Please fill in all fields.","error"); return;
-    }
-    try {
-      setStatus("cp-status","⏳ Sending transaction...","info");
-      const tx = await contract.createPoll(question, [opt0, opt1], BigInt(commit), BigInt(reveal));
-      setStatus("cp-status","⏳ Waiting for confirmation... tx: " + tx.hash,"info");
-      const receipt = await tx.wait();
-      let pollId = "?";
-      for (const log of receipt.logs) {
-        try {
-          const parsed = contract.interface.parseLog(log);
-          if (parsed && parsed.name === "PollCreated") { pollId = parsed.args[0].toString(); break; }
-        } catch(_) {}
+    } else if (phase === 'reveal') {
+      const saved = getSecret(pollId);
+      if (voted && !revealed && saved.secret) {
+        actionHTML = `
+          <div class="card-status info">⏳ Reveal phase is open. Reveal your vote to count it.</div>
+          <button class="reveal-btn" onclick="revealMyVote(${pollId})">🔓 Reveal My Vote</button>`;
+      } else if (revealed) {
+        actionHTML = `<div class="card-status success">✅ Your vote has been revealed and counted!</div>`;
+      } else {
+        actionHTML = `<div class="card-status info">⏳ Reveal phase active. Results loading...</div>`;
       }
-      setStatus("cp-status","✅ Poll created! Poll ID: " + pollId,"success");
-    } catch(e) { setStatus("cp-status","❌ " + (e.reason || e.message),"error"); }
+    } else {
+      actionHTML = `<div class="card-status" style="display:block;background:rgba(96,96,160,0.1);color:var(--muted);border:1px solid var(--border);">Poll ended. Final results above.</div>`;
+    }
+
+    const timeLeft = phase === 'commit'
+      ? `Voting closes in: <span id="timer-${pollId}">${formatCountdown(commitDeadline - now)}</span>`
+      : phase === 'reveal'
+      ? `Reveal closes in: <span id="timer-${pollId}">${formatCountdown(revealDeadline - now)}</span>`
+      : `Poll ended`;
+
+    wrapper.innerHTML = `
+      <div class="poll-id-badge">POLL #${pollId}</div>
+      <div class="poll-question">${question}</div>
+      <div class="phase-badge ${phaseClass}"><span class="blink"></span>${phaseLabel}</div>
+      <div class="timer">${timeLeft}</div>
+      ${actionHTML}
+      ${resultsHTML}
+      <div class="card-status" id="status-${pollId}"></div>
+    `;
+
+    // Start countdown
+    if (phase !== 'ended') {
+      setInterval(() => {
+        const el = document.getElementById(`timer-${pollId}`);
+        if (!el) return;
+        const n = Math.floor(Date.now()/1000);
+        const deadline = phase === 'commit' ? commitDeadline : revealDeadline;
+        el.textContent = formatCountdown(deadline - n);
+      }, 1000);
+    }
+
+  } catch(e) {
+    wrapper.innerHTML = `<div class="poll-id-badge">POLL #${pollId}</div><div class="card-status error" style="display:block;">Error loading poll</div>`;
   }
 
-  async function generateHash() {
-    if (!requireWallet()) return;
-    const choice = $("cv-choice").value;
-    const secret = $("cv-secret").value.trim();
-    if (choice === "" || !secret) {
-      setStatus("cv-status","⚠️ Enter choice and secret first.","error"); return;
-    }
-    try {
-      const addr = await signer.getAddress();
-      const hash = ethers.solidityPackedKeccak256(
-        ["uint256", "string", "address"],
-        [BigInt(choice), secret, addr]
-      );
-      $("cv-hash").textContent = "Hash: " + hash;
-      $("cv-hash").style.display = "block";
-      setStatus("cv-status","✅ Hash generated. Use Commit Vote to submit it.","success");
-    } catch(e) { setStatus("cv-status","❌ " + (e.reason || e.message),"error"); }
+  return wrapper;
+}
+
+async function getOption(pollId, index) {
+  try {
+    const res = await contract.getResults(BigInt(pollId));
+    return res[0][index] || (index === 0 ? 'Yes' : 'No');
+  } catch(_) { return index === 0 ? 'Yes' : 'No'; }
+}
+
+async function castVote(pollId, choice, btnEl) {
+  if (!contract) { alert("Connect wallet first"); return; }
+  const statusEl = $(`status-${pollId}`);
+
+  try {
+    // Disable buttons
+    const btns = btnEl.closest('.vote-buttons').querySelectorAll('button');
+    btns.forEach(b => b.disabled = true);
+
+    const secret = generateSecret();
+    const hash = ethers.solidityPackedKeccak256(
+      ["uint256","string","address"],
+      [BigInt(choice), secret, userAddress]
+    );
+
+    setStatus2(statusEl, `<span class="spinner"></span>Sending vote to blockchain...`, 'info');
+
+    const tx = await contract.commitVote(BigInt(pollId), hash);
+    setStatus2(statusEl, `<span class="spinner"></span>Confirming...`, 'info');
+    await tx.wait();
+
+    saveSecret(pollId, choice, secret);
+    markVoted(pollId);
+
+    setStatus2(statusEl, `✅ Vote locked! Your secret is saved automatically. Return during reveal phase.`, 'success');
+
+    // Update button style
+    btns.forEach(b => b.disabled = true);
+    btnEl.classList.add(choice === 0 ? 'voted-yes' : 'voted-no');
+
+  } catch(e) {
+    setStatus2(statusEl, `❌ ${e.reason || e.message}`, 'error');
+    const btns = btnEl.closest('.vote-buttons')?.querySelectorAll('button');
+    if (btns) btns.forEach(b => b.disabled = false);
+  }
+}
+
+async function revealMyVote(pollId) {
+  if (!contract) return;
+  const statusEl = $(`status-${pollId}`);
+  const saved = getSecret(pollId);
+  if (!saved.secret) { setStatus2(statusEl, '❌ No saved vote found for this poll.', 'error'); return; }
+
+  try {
+    setStatus2(statusEl, `<span class="spinner"></span>Revealing your vote...`, 'info');
+    const tx = await contract.revealVote(BigInt(pollId), BigInt(saved.choice), saved.secret);
+    await tx.wait();
+    markRevealed(pollId);
+    setStatus2(statusEl, '✅ Vote revealed and counted!', 'success');
+
+    // Reload this card
+    setTimeout(() => refreshCard(pollId), 2000);
+  } catch(e) {
+    setStatus2(statusEl, `❌ ${e.reason || e.message}`, 'error');
+  }
+}
+
+async function refreshCard(pollId) {
+  const old = $(`poll-${pollId}`);
+  if (!old) return;
+  const newCard = await buildPollCard(pollId);
+  old.replaceWith(newCard);
+}
+
+function setStatus2(el, msg, type) {
+  el.innerHTML = msg;
+  el.className = `card-status ${type}`;
+}
+
+async function createPoll() {
+  if (!contract) { alert("Connect wallet first"); return; }
+  const question = $("cp-question").value.trim();
+  const opt0 = $("cp-opt0").value.trim();
+  const opt1 = $("cp-opt1").value.trim();
+  const commit = $("cp-commit").value;
+  const reveal = $("cp-reveal").value;
+
+  if (!question || !opt0 || !opt1 || !commit || !reveal) {
+    setCreateStatus("⚠️ Please fill in all fields.", "error"); return;
   }
 
-  async function commitVote() {
-    if (!requireWallet()) return;
-    const pollId = $("cv-pollid").value;
-    const choice = $("cv-choice").value;
-    const secret = $("cv-secret").value.trim();
-    if (pollId === "" || choice === "" || !secret) {
-      setStatus("cv-status","⚠️ Fill in Poll ID, choice, and secret.","error"); return;
-    }
-    try {
-      setStatus("cv-status","⏳ Fetching hash from contract...","info");
-      const addr = await signer.getAddress();
-const hash = ethers.solidityPackedKeccak256(
-  ["uint256", "string", "address"],
-  [BigInt(choice), secret, addr]
-);
-      setStatus("cv-status","⏳ Sending commit transaction...","info");
-      const tx = await contract.commitVote(BigInt(pollId), hash);
-      setStatus("cv-status","⏳ Waiting for confirmation... tx: " + tx.hash,"info");
-      await tx.wait();
-      setStatus("cv-status","✅ Vote committed successfully!","success");
-    } catch(e) { setStatus("cv-status","❌ " + (e.reason || e.message),"error"); }
-  }
+  try {
+    setCreateStatus(`<span class="spinner"></span>Deploying poll to blockchain...`, "info");
+    const tx = await contract.createPoll(question, [opt0, opt1], BigInt(commit), BigInt(reveal));
+    setCreateStatus(`<span class="spinner"></span>Confirming transaction...`, "info");
+    const receipt = await tx.wait();
 
-  async function revealVote() {
-    if (!requireWallet()) return;
-    const pollId = $("rv-pollid").value;
-    const choice = $("rv-choice").value;
-    const secret = $("rv-secret").value.trim();
-    if (pollId === "" || choice === "" || !secret) {
-      setStatus("rv-status","⚠️ Fill in Poll ID, choice, and secret.","error"); return;
+    let pollId = "?";
+    for (const log of receipt.logs) {
+      try {
+        const parsed = contract.interface.parseLog(log);
+        if (parsed?.name === "PollCreated") { pollId = parsed.args[0].toString(); break; }
+      } catch(_) {}
     }
-    try {
-      setStatus("rv-status","⏳ Sending reveal transaction...","info");
-      const tx = await contract.revealVote(BigInt(pollId), BigInt(choice), secret);
-      setStatus("rv-status","⏳ Waiting for confirmation... tx: " + tx.hash,"info");
-      await tx.wait();
-      setStatus("rv-status","✅ Vote revealed successfully!","success");
-    } catch(e) { setStatus("rv-status","❌ " + (e.reason || e.message),"error"); }
-  }
 
-  async function getResults() {
-    if (!requireWallet()) return;
-    const pollId = $("rv-pollid").value;
-    if (pollId === "") { setStatus("rv-status","⚠️ Enter a Poll ID.","error"); return; }
-    try {
-      setStatus("rv-status","⏳ Fetching results...","info");
-      
-      // Try reading with a read-only provider
-      const readProvider = new ethers.BrowserProvider(window.ethereum);
-      const readContract = new ethers.Contract(CONTRACT_ADDRESS, ABI, readProvider);
-      
-      const options = await readContract.getResults.staticCall(BigInt(pollId));
-      
-      const box = $("rv-results");
-      let html = `<div style="font-size:.8rem;color:var(--muted);margin-bottom:12px;">Poll #${pollId} Results</div>`;
-      
-      const optList = options[0];
-      const cntList = options[1];
-      const total = cntList.reduce((a,b) => a + b, 0n);
-      
-      optList.forEach((opt, i) => {
-        const count = cntList[i];
-        const pct = total === 0n ? 0 : Number((count * 100n) / total);
-        const safe = String(opt).replace(/</g,"&lt;").replace(/>/g,"&gt;");
-        html += `<div class="result-item">
-          <div class="result-label">${safe}</div>
-          <div class="bar-wrap"><div class="bar-fill" style="width:${pct}%"></div></div>
-          <div class="result-count">${count.toString()} vote${count === 1n ? "" : "s"}</div>
-        </div>`;
-      });
-      
-      box.innerHTML = html;
-      box.style.display = "block";
-      setStatus("rv-status","✅ Results loaded.","success");
-    } catch(e) { 
-      setStatus("rv-status","❌ " + (e.reason || e.message),"error"); 
-      console.error("Full error:", e);
-    }
+    setCreateStatus(`✅ Poll #${pollId} created! Switching to polls view...`, "success");
+    setTimeout(() => { switchTab('polls'); loadPolls(); }, 1500);
+  } catch(e) {
+    setCreateStatus(`❌ ${e.reason || e.message}`, "error");
   }
+}
+
+function setCreateStatus(msg, type) {
+  const el = $("createStatus");
+  el.innerHTML = msg;
+  el.className = type;
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    t.classList.toggle('active', (i===0 && tab==='polls') || (i===1 && tab==='create'));
+  });
+  $("pollsView").style.display = tab === 'polls' ? 'block' : 'none';
+  $("createView").style.display = tab === 'create' ? 'block' : 'none';
+}
 </script>
 </body>
 </html>
